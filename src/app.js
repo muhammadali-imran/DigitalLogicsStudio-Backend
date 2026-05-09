@@ -12,12 +12,13 @@ dotenv.config();
 
 const app = express();
 const clientUrl = process.env.CLIENT_URL || "http://localhost:3000";
+const normalizedClientUrl = clientUrl.replace(/\/$/, "");
 
 app.set("trust proxy", 1);
 
 app.use(
   cors({
-    origin: clientUrl,
+    origin: normalizedClientUrl,
     credentials: true,
   }),
 );
