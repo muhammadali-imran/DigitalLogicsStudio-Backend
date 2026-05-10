@@ -32,7 +32,7 @@ const allowedOrigins = [
   "https://circuits.quantumlogicslimited.com",
   "https://digital-logics-studio.vercel.app",
   "https://circuit.quantumlogicslimited.com",
-  "digital-logics-studio-kccbyx2bo-seno-quantum-coders-projects.vercel.app",
+  "https://digital-logics-studio-kccbyx2bo-seno-quantum-coders-projects.vercel.app",
   // Dynamically include whatever CLIENT_URL is set to in the environment
   ...(process.env.CLIENT_URL ? [process.env.CLIENT_URL] : []),
 ];
