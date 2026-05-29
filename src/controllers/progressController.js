@@ -6,19 +6,6 @@ const toDateKey = (date = new Date()) =>
 const makeEventId = (type) =>
   `${type}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
 
-const normalizeStringArray = (value) =>
-  Array.isArray(value)
-    ? value
-        .filter((item) => typeof item === "string")
-        .map((item) => item.trim())
-        .filter(Boolean)
-    : [];
-
-const normalizeNonNegativeInteger = (value) => {
-  const number = Number(value);
-  return Number.isInteger(number) && number >= 0 ? number : null;
-};
-
 function sanitizeUser(user) {
   return {
     id: user._id,
@@ -57,13 +44,12 @@ async function completeProblem(req, res, next) {
     }
 
     const { title = "", tags = [], topicId = null } = req.body || {};
-    const normalizedTags = normalizeStringArray(tags);
     const dateKey = toDateKey();
     const entry = req.user.getProblemProgress(problemId);
 
     const wasSolved = entry.status === "solved";
     entry.title = title || entry.title;
-    entry.tags = normalizedTags.length ? normalizedTags : entry.tags;
+    entry.tags = tags.length ? tags : entry.tags;
     entry.topicId = topicId || entry.topicId;
     entry.status = "solved";
     entry.openedAt = entry.openedAt || new Date();
@@ -148,7 +134,6 @@ async function recordAttempt(req, res, next) {
     }
 
     const { title = "", tags = [], topicId = null } = req.body || {};
-    const normalizedTags = normalizeStringArray(tags);
     const dateKey = toDateKey();
     const entry = req.user.getProblemProgress(problemId);
 
@@ -157,7 +142,7 @@ async function recordAttempt(req, res, next) {
     entry.openedAt = entry.openedAt || new Date();
     entry.lastAttemptAt = new Date();
     entry.title = title || entry.title;
-    entry.tags = normalizedTags.length ? normalizedTags : entry.tags;
+    entry.tags = tags.length ? tags : entry.tags;
     entry.topicId = topicId || entry.topicId;
 
     const day = req.user.getActivityDay(dateKey);
@@ -192,14 +177,11 @@ async function openTopic(req, res, next) {
   try {
     const { topicId } = req.params;
     const { title = "", totalSubtopics } = req.body || {};
-    const normalizedTotalSubtopics = normalizeNonNegativeInteger(totalSubtopics);
     const dateKey = toDateKey();
     const entry = req.user.getTopicProgress(topicId);
 
     entry.title = title || entry.title;
-    if (normalizedTotalSubtopics !== null) {
-      entry.totalSubtopics = normalizedTotalSubtopics;
-    }
+    if (totalSubtopics !== undefined) entry.totalSubtopics = Number(totalSubtopics);
     entry.openedAt = entry.openedAt || new Date();
     if (entry.status !== "completed") entry.status = "in_progress";
     refreshTopicCompletion(entry);
@@ -242,19 +224,16 @@ async function toggleSubtopic(req, res, next) {
       totalSubtopics,
       equivalentSubtopicIds = [],
     } = req.body || {};
-    const normalizedTotalSubtopics = normalizeNonNegativeInteger(totalSubtopics);
     const dateKey = toDateKey();
     const entry = req.user.getTopicProgress(topicId);
 
     entry.title = title || entry.title;
-    if (normalizedTotalSubtopics !== null) {
-      entry.totalSubtopics = normalizedTotalSubtopics;
-    }
+    if (totalSubtopics !== undefined) entry.totalSubtopics = Number(totalSubtopics);
     entry.openedAt = entry.openedAt || new Date();
 
     const completed = new Set(entry.completedSubtopics);
     const equivalentIds = Array.from(
-      new Set([subtopicId, ...normalizeStringArray(equivalentSubtopicIds)]),
+      new Set([subtopicId, ...equivalentSubtopicIds].filter(Boolean)),
     );
     const isCompleted = equivalentIds.some((id) => completed.has(id));
 
