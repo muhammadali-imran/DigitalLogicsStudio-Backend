@@ -33,19 +33,24 @@ app.use((req, res, next) => {
 });
 
 // ─── CORS ────────────────────────────────────────────────────────────────────
+const normalizeOrigin = (origin) => origin?.trim().replace(/\/+$/, "");
+
 const allowedOrigins = [
   "http://localhost:3000",
   "https://circuits.quantumlogicslimited.com",
   "https://digital-logics-studio.vercel.app",
+  "https://digital-logics-studio-seven.vercel.app",
   "https://circuit.quantumlogicslimited.com",
   "https://digital-logics-studio-kccbyx2bo-seno-quantum-coders-projects.vercel.app",
   ...(process.env.CLIENT_URL ? [process.env.CLIENT_URL] : []),
-];
+]
+  .map(normalizeOrigin)
+  .filter(Boolean);
 
 const corsOptions = {
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) {
+    if (allowedOrigins.includes(normalizeOrigin(origin))) {
       callback(null, true);
     } else {
       callback(new Error(`CORS policy blocked origin: ${origin}`));
