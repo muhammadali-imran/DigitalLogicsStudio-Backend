@@ -137,3 +137,71 @@ If progress volume grows, migrate embedded progress into separate collections:
 - Keep progress writes idempotent where user actions may be retried.
 - Use migration scripts for schema changes once real users exist.
 
+
+
+---
+
+## Circuit Collection
+
+Mongoose model: `src/models/Circuit.js`
+
+Each saved circuit is its own document, linked to the user via `userId`.
+
+```js
+{
+  userId: ObjectId,       // ref → User
+  name: String,           // unique per user, max 100 chars
+  gates: [Gate],
+  wires: [Wire],
+  gateIdCounter: Number,
+  wireIdCounter: Number,
+  inputCounter: Number,
+  outputCounter: Number,
+  createdAt: Date,
+  updatedAt: Date
+}
+```
+
+### Gate sub-document
+
+```js
+{
+  id: Number,
+  type: String,           // "INPUT" | "OUTPUT" | "AND" | "OR" | "NOT" | etc.
+  label: String,
+  x: Number,
+  y: Number,
+  inputs: Number,
+  hasOutput: Boolean,
+  inputValues: [Boolean]
+}
+```
+
+### Wire sub-document
+
+```js
+{
+  id: Number,
+  fromId: Number,
+  toId: Number,
+  toIndex: Number
+}
+```
+
+### Indexes
+
+```js
+db.circuits.createIndex({ userId: 1 });                         // list all circuits for a user
+db.circuits.createIndex({ userId: 1, name: 1 }, { unique: true }); // enforce unique name per user
+```
+
+### API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/circuits` | List all circuits for authenticated user |
+| POST | `/api/circuits` | Save (upsert) a circuit by name |
+| GET | `/api/circuits/:id` | Get a single circuit |
+| DELETE | `/api/circuits/:id` | Delete a circuit |
+
+All endpoints require authentication (`protect` middleware).
