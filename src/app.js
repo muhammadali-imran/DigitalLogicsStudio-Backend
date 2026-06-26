@@ -37,6 +37,7 @@ const normalizeOrigin = (origin) => origin?.trim().replace(/\/+$/, "");
 
 const allowedOrigins = [
   "http://localhost:3000",
+  "http://localhost:3000/",
   "https://circuits.quantumlogicslimited.com",
   "https://digital-logics-studio.vercel.app",
   "https://digital-logics-studio-seven.vercel.app",
