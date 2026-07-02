@@ -7,6 +7,7 @@ const dotenv = require("dotenv");
 const authRoutes = require("./routes/authRoutes");
 const healthRoutes = require("./routes/healthRoutes");
 const progressRoutes = require("./routes/progressRoutes");
+const aiRoutes = require("./routes/aiRoutes");
 const { errorHandler, notFound } = require("./middleware/errorMiddleware");
 
 dotenv.config();
@@ -38,6 +39,9 @@ const normalizeOrigin = (origin) => origin?.trim().replace(/\/+$/, "");
 const allowedOrigins = [
   "http://localhost:3000",
   "http://localhost:3000/",
+  "http://localhost:3001",
+  "http://127.0.0.1:3000",
+  "http://127.0.0.1:3001",
   "https://circuits.quantumlogicslimited.com",
   "https://digital-logics-studio.vercel.app",
   "https://digital-logics-studio-seven.vercel.app",
@@ -51,11 +55,17 @@ const allowedOrigins = [
 const corsOptions = {
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(normalizeOrigin(origin))) {
-      callback(null, true);
-    } else {
-      callback(new Error(`CORS policy blocked origin: ${origin}`));
+    const normalized = normalizeOrigin(origin);
+    if (allowedOrigins.includes(normalized)) {
+      return callback(null, true);
     }
+    if (
+      process.env.NODE_ENV !== "production" &&
+      /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin)
+    ) {
+      return callback(null, true);
+    }
+    callback(new Error(`CORS policy blocked origin: ${origin}`));
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
@@ -103,6 +113,7 @@ app.get("/", (req, res) => {
 app.use("/api/health", healthRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/progress", progressRoutes);
+app.use("/api/ai", aiRoutes);
 
 // ─── Error handlers ──────────────────────────────────────────────────────────
 app.use(notFound);
