@@ -35,6 +35,10 @@ router.get("/", (req, res) => {
     success: true,
     message: "API is healthy",
     environment: process.env.NODE_ENV || "development",
+    ai: {
+      groqConfigured: Boolean(process.env.GROQ_API_KEY),
+      pineconeConfigured: Boolean(process.env.PINECONE_API_KEY),
+    },
   });
 });
 

@@ -45,14 +45,16 @@ async function handleChat(req, res) {
 
   if (!process.env.GROQ_API_KEY) {
     return res.status(503).json({
-      error: "AI assistant is not configured. Add GROQ_API_KEY to the backend environment.",
+      error:
+        "AI assistant is not configured. Add GROQ_API_KEY to the backend Vercel project (Production), then redeploy.",
     });
   }
 
   const groqClient = getGroqClient();
   if (!groqClient) {
     return res.status(503).json({
-      error: "AI assistant is not configured. Add GROQ_API_KEY to the backend environment.",
+      error:
+        "AI assistant is not configured. Add GROQ_API_KEY to the backend Vercel project (Production), then redeploy.",
     });
   }
 
@@ -96,14 +98,16 @@ async function handleChatStream(req, res) {
 
   if (!process.env.GROQ_API_KEY) {
     return res.status(503).json({
-      error: "AI assistant is not configured. Add GROQ_API_KEY to the backend environment.",
+      error:
+        "AI assistant is not configured. Add GROQ_API_KEY to the backend Vercel project (Production), then redeploy.",
     });
   }
 
   const groqClient = getGroqClient();
   if (!groqClient) {
     return res.status(503).json({
-      error: "AI assistant is not configured. Add GROQ_API_KEY to the backend environment.",
+      error:
+        "AI assistant is not configured. Add GROQ_API_KEY to the backend Vercel project (Production), then redeploy.",
     });
   }
 
