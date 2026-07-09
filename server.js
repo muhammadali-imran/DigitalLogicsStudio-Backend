@@ -1,3 +1,6 @@
+// Force Google DNS — router DNS blocks MongoDB Atlas SRV records
+require("dns").setServers(["8.8.8.8", "8.8.4.4", "1.1.1.1"]);
+
 require("dotenv").config();
 
 const app = require("./src/app");

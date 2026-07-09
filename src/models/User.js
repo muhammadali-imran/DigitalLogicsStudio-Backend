@@ -9,6 +9,8 @@ const problemProgressSchema = new mongoose.Schema(
     title: { type: String, default: "" },
     tags: { type: [String], default: [] },
     topicId: { type: String, default: null },
+    // "dld" | "coal" — defaults to "dld" for backward compat with existing records
+    subject: { type: String, enum: ["dld", "coal"], default: "dld" },
     status: {
       type: String,
       enum: ["not_started", "attempted", "solved"],
@@ -26,6 +28,8 @@ const topicProgressSchema = new mongoose.Schema(
   {
     topicId: { type: String, required: true },
     title: { type: String, default: "" },
+    // "dld" | "coal" — defaults to "dld" for backward compat with existing records
+    subject: { type: String, enum: ["dld", "coal"], default: "dld" },
     status: {
       type: String,
       enum: ["not_started", "in_progress", "completed"],
