@@ -29,13 +29,16 @@ function parsePositiveProblemId(problemId) {
 }
 
 function readProgressPayload(body = {}) {
-  const { title = "", tags = [], topicId = null, totalSubtopics } = body;
+  const { title = "", tags = [], topicId = null, totalSubtopics, subject } = body;
+  // Accept "dld" or "coal"; default to "dld" for any unknown value
+  const normalizedSubject = subject === "coal" ? "coal" : "dld";
 
   return {
     title,
     tags,
     topicId,
     totalSubtopics,
+    subject: normalizedSubject,
   };
 }
 
@@ -67,7 +70,7 @@ async function completeProblem(req, res, next) {
   try {
     const problemId = parsePositiveProblemId(req.params.problemId);
 
-    const { title, tags, topicId } = readProgressPayload(req.body);
+    const { title, tags, topicId, subject } = readProgressPayload(req.body);
     const dateKey = toDateKey();
     const entry = req.user.getProblemProgress(problemId);
 
@@ -75,6 +78,7 @@ async function completeProblem(req, res, next) {
     entry.title = title || entry.title;
     entry.tags = tags.length ? tags : entry.tags;
     entry.topicId = topicId || entry.topicId;
+    entry.subject = entry.subject || subject;
     entry.status = "solved";
     entry.openedAt = entry.openedAt || new Date();
     entry.solvedAt = entry.solvedAt || new Date();
@@ -145,7 +149,7 @@ async function recordAttempt(req, res, next) {
   try {
     const problemId = parsePositiveProblemId(req.params.problemId);
 
-    const { title, tags, topicId } = readProgressPayload(req.body);
+    const { title, tags, topicId, subject } = readProgressPayload(req.body);
     const dateKey = toDateKey();
     const entry = req.user.getProblemProgress(problemId);
 
@@ -156,6 +160,7 @@ async function recordAttempt(req, res, next) {
     entry.title = title || entry.title;
     entry.tags = tags.length ? tags : entry.tags;
     entry.topicId = topicId || entry.topicId;
+    entry.subject = entry.subject || subject;
 
     const day = req.user.getActivityDay(dateKey);
     day.attempts += 1;
@@ -185,7 +190,7 @@ async function recordAttempt(req, res, next) {
 async function openTopic(req, res, next) {
   try {
     const { topicId } = req.params;
-    const { title, totalSubtopics } = readProgressPayload(req.body);
+    const { title, totalSubtopics, subject } = readProgressPayload(req.body);
     const dateKey = toDateKey();
     const entry = req.user.getTopicProgress(topicId);
 
@@ -193,6 +198,7 @@ async function openTopic(req, res, next) {
     if (totalSubtopics !== undefined) entry.totalSubtopics = Number(totalSubtopics);
     entry.openedAt = entry.openedAt || new Date();
     if (entry.status !== "completed") entry.status = "in_progress";
+    entry.subject = entry.subject || subject;
     refreshTopicCompletion(entry);
 
     const day = req.user.getActivityDay(dateKey);
@@ -225,7 +231,7 @@ async function openTopic(req, res, next) {
 async function toggleSubtopic(req, res, next) {
   try {
     const { topicId, subtopicId } = req.params;
-    const { title, totalSubtopics } = readProgressPayload(req.body);
+    const { title, totalSubtopics, subject } = readProgressPayload(req.body);
     const equivalentSubtopicIds = req.body?.equivalentSubtopicIds || [];
     const dateKey = toDateKey();
     const entry = req.user.getTopicProgress(topicId);
@@ -233,6 +239,7 @@ async function toggleSubtopic(req, res, next) {
     entry.title = title || entry.title;
     if (totalSubtopics !== undefined) entry.totalSubtopics = Number(totalSubtopics);
     entry.openedAt = entry.openedAt || new Date();
+    entry.subject = entry.subject || subject;
 
     const completed = new Set(entry.completedSubtopics);
     const equivalentIds = Array.from(
@@ -297,6 +304,7 @@ async function getSnapshot(req, res, next) {
         title: p.title,
         tags: p.tags,
         topicId: p.topicId,
+        subject: p.subject || "dld",
       };
     });
 
@@ -310,6 +318,7 @@ async function getSnapshot(req, res, next) {
         completedSubtopics: t.completedSubtopics,
         totalSubtopics: t.totalSubtopics,
         title: t.title,
+        subject: t.subject || "dld",
       };
     });
 
