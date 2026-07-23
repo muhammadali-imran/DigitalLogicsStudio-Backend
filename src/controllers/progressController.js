@@ -42,9 +42,9 @@ function readProgressPayload(body = {}) {
   };
 }
 
-async function saveProgress(user, modifiedFields = []) {
-  modifiedFields.forEach((field) => user.markModified(field));
-  await user.save();
+async function saveProgressDoc(progress, modifiedFields = []) {
+  modifiedFields.forEach((field) => progress.markModified(field));
+  await progress.save();
 }
 
 /** Recalculate completion for a topic entry given its totalSubtopics */
@@ -72,26 +72,29 @@ async function completeProblem(req, res, next) {
 
     const { title, tags, topicId, subject } = readProgressPayload(req.body);
     const dateKey = toDateKey();
-    const entry = req.user.getProblemProgress(problemId);
+    const progress = req.progress;
+    const entry = progress.getProblemProgress(problemId, subject);
 
     const wasSolved = entry.status === "solved";
     entry.title = title || entry.title;
     entry.tags = tags.length ? tags : entry.tags;
     entry.topicId = topicId || entry.topicId;
-    entry.subject = entry.subject || subject;
+    entry.subject = subject || entry.subject;
     entry.status = "solved";
     entry.openedAt = entry.openedAt || new Date();
     entry.solvedAt = entry.solvedAt || new Date();
     entry.lastAttemptAt = new Date();
 
+    // Legacy flat array still lives on the User doc — update it separately.
     if (!req.user.solvedProblems.includes(problemId)) {
       req.user.solvedProblems.push(problemId);
+      await req.user.save();
     }
 
     if (!wasSolved) {
-      const day = req.user.getActivityDay(dateKey);
+      const day = progress.getActivityDay(dateKey);
       day.solved += 1;
-      req.user.pushRecentEvent({
+      progress.pushRecentEvent({
         id: makeEventId("problem_solved"),
         type: "problem_solved",
         createdAt: new Date(),
@@ -100,7 +103,7 @@ async function completeProblem(req, res, next) {
       });
     }
 
-    await saveProgress(req.user, ["problemProgress", "activityLog", "recentEvents"]);
+    await saveProgressDoc(progress, ["problemProgress", "activityLog", "recentEvents"]);
 
     res.status(200).json({
       success: true,
@@ -119,17 +122,20 @@ async function completeProblem(req, res, next) {
 async function uncompleteProblem(req, res, next) {
   try {
     const problemId = parsePositiveProblemId(req.params.problemId);
+    const progress = req.progress;
 
-    const entry = req.user.getProblemProgress(problemId);
+    const entry = progress.getProblemProgress(problemId);
     if (entry.status === "solved") {
       entry.status = entry.attempts > 0 ? "attempted" : "not_started";
       entry.solvedAt = null;
     }
 
-    req.user.solvedProblems = req.user.solvedProblems.filter(
-      (id) => id !== problemId,
-    );
-    await saveProgress(req.user, ["problemProgress"]);
+    if (req.user.solvedProblems.includes(problemId)) {
+      req.user.solvedProblems = req.user.solvedProblems.filter((id) => id !== problemId);
+      await req.user.save();
+    }
+
+    await saveProgressDoc(progress, ["problemProgress"]);
 
     res.status(200).json({
       success: true,
@@ -151,7 +157,8 @@ async function recordAttempt(req, res, next) {
 
     const { title, tags, topicId, subject } = readProgressPayload(req.body);
     const dateKey = toDateKey();
-    const entry = req.user.getProblemProgress(problemId);
+    const progress = req.progress;
+    const entry = progress.getProblemProgress(problemId, subject);
 
     entry.attempts += 1;
     entry.status = entry.status === "solved" ? "solved" : "attempted";
@@ -160,12 +167,12 @@ async function recordAttempt(req, res, next) {
     entry.title = title || entry.title;
     entry.tags = tags.length ? tags : entry.tags;
     entry.topicId = topicId || entry.topicId;
-    entry.subject = entry.subject || subject;
+    entry.subject = subject || entry.subject;
 
-    const day = req.user.getActivityDay(dateKey);
+    const day = progress.getActivityDay(dateKey);
     day.attempts += 1;
 
-    req.user.pushRecentEvent({
+    progress.pushRecentEvent({
       id: makeEventId("problem_attempted"),
       type: "problem_attempted",
       createdAt: new Date(),
@@ -173,7 +180,7 @@ async function recordAttempt(req, res, next) {
       title: entry.title,
     });
 
-    await saveProgress(req.user, ["problemProgress", "activityLog", "recentEvents"]);
+    await saveProgressDoc(progress, ["problemProgress", "activityLog", "recentEvents"]);
 
     res.status(200).json({ success: true, message: "Attempt recorded." });
   } catch (error) {
@@ -192,19 +199,20 @@ async function openTopic(req, res, next) {
     const { topicId } = req.params;
     const { title, totalSubtopics, subject } = readProgressPayload(req.body);
     const dateKey = toDateKey();
-    const entry = req.user.getTopicProgress(topicId);
+    const progress = req.progress;
+    const entry = progress.getTopicProgress(topicId, subject);
 
     entry.title = title || entry.title;
     if (totalSubtopics !== undefined) entry.totalSubtopics = Number(totalSubtopics);
     entry.openedAt = entry.openedAt || new Date();
     if (entry.status !== "completed") entry.status = "in_progress";
-    entry.subject = entry.subject || subject;
+    entry.subject = subject || entry.subject;
     refreshTopicCompletion(entry);
 
-    const day = req.user.getActivityDay(dateKey);
+    const day = progress.getActivityDay(dateKey);
     day.topicsOpened += 1;
 
-    req.user.pushRecentEvent({
+    progress.pushRecentEvent({
       id: makeEventId("topic_opened"),
       type: "topic_opened",
       createdAt: new Date(),
@@ -212,7 +220,7 @@ async function openTopic(req, res, next) {
       title: entry.title,
     });
 
-    await saveProgress(req.user, ["topicProgress", "activityLog", "recentEvents"]);
+    await saveProgressDoc(progress, ["topicProgress", "activityLog", "recentEvents"]);
 
     res.status(200).json({
       success: true,
@@ -234,12 +242,13 @@ async function toggleSubtopic(req, res, next) {
     const { title, totalSubtopics, subject } = readProgressPayload(req.body);
     const equivalentSubtopicIds = req.body?.equivalentSubtopicIds || [];
     const dateKey = toDateKey();
-    const entry = req.user.getTopicProgress(topicId);
+    const progress = req.progress;
+    const entry = progress.getTopicProgress(topicId, subject);
 
     entry.title = title || entry.title;
     if (totalSubtopics !== undefined) entry.totalSubtopics = Number(totalSubtopics);
     entry.openedAt = entry.openedAt || new Date();
-    entry.subject = entry.subject || subject;
+    entry.subject = subject || entry.subject;
 
     const completed = new Set(entry.completedSubtopics);
     const equivalentIds = Array.from(
@@ -259,10 +268,10 @@ async function toggleSubtopic(req, res, next) {
 
     if (!wasCompleted && entry.status === "completed") {
       entry.completedAt = new Date();
-      const day = req.user.getActivityDay(dateKey);
+      const day = progress.getActivityDay(dateKey);
       day.topicsCompleted += 1;
 
-      req.user.pushRecentEvent({
+      progress.pushRecentEvent({
         id: makeEventId("topic_completed"),
         type: "topic_completed",
         createdAt: new Date(),
@@ -271,7 +280,7 @@ async function toggleSubtopic(req, res, next) {
       });
     }
 
-    await saveProgress(req.user, ["topicProgress", "activityLog", "recentEvents"]);
+    await saveProgressDoc(progress, ["topicProgress", "activityLog", "recentEvents"]);
 
     res.status(200).json({
       success: true,
@@ -291,10 +300,10 @@ async function toggleSubtopic(req, res, next) {
  */
 async function getSnapshot(req, res, next) {
   try {
-    const user = req.user;
+    const progress = req.progress;
 
     const problems = {};
-    (user.problemProgress || []).forEach((p) => {
+    (progress.problemProgress || []).forEach((p) => {
       problems[p.problemId] = {
         attempts: p.attempts,
         status: p.status,
@@ -309,7 +318,7 @@ async function getSnapshot(req, res, next) {
     });
 
     const topics = {};
-    (user.topicProgress || []).forEach((t) => {
+    (progress.topicProgress || []).forEach((t) => {
       topics[t.topicId] = {
         status: t.status,
         openedAt: t.openedAt,
@@ -323,7 +332,7 @@ async function getSnapshot(req, res, next) {
     });
 
     const activity = {};
-    (user.activityLog || []).forEach((d) => {
+    (progress.activityLog || []).forEach((d) => {
       activity[d.dateKey] = {
         attempts: d.attempts,
         solved: d.solved,
@@ -338,7 +347,7 @@ async function getSnapshot(req, res, next) {
         problems,
         topics,
         activity,
-        recentEvents: user.recentEvents || [],
+        recentEvents: progress.recentEvents || [],
       },
     });
   } catch (error) {

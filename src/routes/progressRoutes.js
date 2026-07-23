@@ -1,5 +1,6 @@
 const express = require("express");
 const { protect } = require("../middleware/authMiddleware");
+const { loadUserProgress } = require("../middleware/loadUserProgress");
 const {
   completeProblem,
   uncompleteProblem,
@@ -18,8 +19,12 @@ const router = express.Router();
  *   description: User progress tracking endpoints
  */
 
-// All progress routes require authentication
+// All progress routes require authentication, and all of them need the
+// UserProgress document — so both middlewares run for the whole router.
+// (Other routers, like auth and AI chat, don't load loadUserProgress at
+// all, so they never pay for this extra query.)
 router.use(protect);
+router.use(loadUserProgress);
 
 /**
  * @swagger
